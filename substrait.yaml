@@ -1,0 +1,21 @@
+# Required app manifest — a deploy without it (or without a real description)
+# fails validation.
+
+description: >
+  Cardiac Care Tips gives people living with heart disease a short, practical,
+  evidence-based library of tips on nutrition, activity, medication adherence,
+  blood-pressure and weight monitoring, sleep, stress and warning signs —
+  searchable by category, with a daily rotating tip and favourites saved per
+  user. It is general patient education, not a substitute for anyone's own
+  care plan.
+
+# Explicit database declaration — the platform provisions it and injects
+# DATABASE_URL only because this key is present. oceanbase = shared HA cluster,
+# MySQL wire protocol, nightly backups, portal Database tab. The engine cannot be
+# changed after the first deploy.
+database: oceanbase
+
+# No backing services are needed: tips and favourites are small relational data.
+# Skill/plugin version this app was last deployed with — stamped by
+# /substrait:deploy; do not edit by hand.
+scaffold_version: 2026.09.22.075110

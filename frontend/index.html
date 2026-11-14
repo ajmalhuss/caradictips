@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="Practical, evidence-based tips for people living with heart disease: nutrition, activity, medication, monitoring and warning signs."
+    />
+    <title>Cardiac Care Tips</title>
+
+    <!-- PWA: installable to the home screen, works offline -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#be1e2d" />
+
+    <!-- iOS does not read the manifest for these; it needs its own tags. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cardiac Tips" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

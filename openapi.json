@@ -1,0 +1,357 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Cardiac Care Tips",
+    "version": "1.0.0",
+    "description": "Patient-education tips for people living with heart disease: a searchable library across nutrition, activity, medication, monitoring and lifestyle, plus a daily rotating tip, per-user favourites, and a fixed set of emergency warning signs. General education only — not a substitute for an individual's own care plan."
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Readiness probe used by the platform.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "The service is up.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "summary": "Return the app's display title.",
+        "operationId": "getConfig",
+        "responses": {
+          "200": {
+            "description": "The configured app title.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Config" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "summary": "Report the signed-in user's identity from the platform's SSO headers.",
+        "operationId": "getMe",
+        "description": "Reads X-Forwarded-Email / X-Forwarded-User, which the platform's auth proxy injects when Google SSO is enabled. Both are null when SSO is off, on public paths, or in local development. The browser cannot read these headers, so this endpoint is how the frontend asks who is signed in.",
+        "responses": {
+          "200": {
+            "description": "The caller's identity, or nulls when unknown.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Me" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "summary": "List the tip categories with how many tips each contains.",
+        "operationId": "listCategories",
+        "description": "Returns categories in display order, with any category present in the database but unknown to the backend appended afterwards.",
+        "responses": {
+          "200": {
+            "description": "Categories and their tip counts.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CategoryList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tips": {
+      "get": {
+        "summary": "Search and filter the tip library.",
+        "operationId": "listTips",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Restrict to one category slug, e.g. nutrition or warning.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Case-insensitive substring match across the tip's title, body and rationale.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum tips to return, clamped to the range 1-200.",
+            "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 200 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching tips plus the unpaginated total.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TipList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/today": {
+      "get": {
+        "summary": "Return one tip for today, rotating daily and excluding warning signs.",
+        "operationId": "getToday",
+        "description": "Stable for the whole day and identical for every user. Warning-sign tips are deliberately excluded: they belong in the always-visible emergency card rather than a once-a-day slot.",
+        "responses": {
+          "200": {
+            "description": "Today's tip.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tip" }
+              }
+            }
+          },
+          "404": {
+            "description": "No tips are available to rotate through.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is not configured (DATABASE_URL unset).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/favourites": {
+      "get": {
+        "summary": "List the tip ids this caller has saved.",
+        "operationId": "listFavourites",
+        "description": "Favourites are keyed by the platform's SSO email header when present, otherwise by the X-Client-Id header the frontend supplies. With neither, an empty list and a note are returned.",
+        "parameters": [
+          {
+            "name": "X-Client-Id",
+            "in": "header",
+            "required": false,
+            "description": "Stable per-browser identifier used to key favourites when SSO is not enabled.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved tip ids, newest first.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FavouriteList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/favourites/{tip_id}": {
+      "parameters": [
+        {
+          "name": "tip_id",
+          "in": "path",
+          "required": true,
+          "description": "Id of the tip to save or unsave.",
+          "schema": { "type": "integer" }
+        }
+      ],
+      "post": {
+        "summary": "Save a tip to the caller's favourites.",
+        "operationId": "addFavourite",
+        "description": "Idempotent: saving an already-saved tip succeeds without creating a duplicate.",
+        "parameters": [
+          {
+            "name": "X-Client-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The tip is saved (or was already).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "No tip exists with that id.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a tip from the caller's favourites.",
+        "operationId": "removeFavourite",
+        "description": "Idempotent: removing a tip that is not saved still succeeds.",
+        "parameters": [
+          {
+            "name": "X-Client-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tip is no longer saved.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "example": "ok" }
+        }
+      },
+      "Config": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "App display title, from the APP_TITLE environment variable.",
+            "example": "Cardiac Care Tips"
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "required": ["email", "user", "identified"],
+        "properties": {
+          "email": { "type": "string", "nullable": true, "description": "Signed-in user's email, or null." },
+          "user": { "type": "string", "nullable": true, "description": "Signed-in username, or null." },
+          "identified": { "type": "boolean", "description": "True when an SSO identity was supplied." }
+        }
+      },
+      "CategoryCount": {
+        "type": "object",
+        "required": ["category", "count"],
+        "properties": {
+          "category": { "type": "string", "example": "nutrition" },
+          "count": { "type": "integer", "example": 5 }
+        }
+      },
+      "CategoryList": {
+        "type": "object",
+        "required": ["categories"],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CategoryCount" }
+          }
+        }
+      },
+      "Tip": {
+        "type": "object",
+        "required": ["id", "category", "title", "body", "sort_order"],
+        "properties": {
+          "id": { "type": "integer" },
+          "category": {
+            "type": "string",
+            "description": "Category slug. Known values: warning, nutrition, activity, medication, monitoring, lifestyle.",
+            "example": "activity"
+          },
+          "title": { "type": "string" },
+          "body": { "type": "string", "description": "The tip itself, in plain prose." },
+          "why": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short rationale for why the tip helps."
+          },
+          "sort_order": { "type": "integer", "description": "Display ordering key; lower sorts first." }
+        }
+      },
+      "TipList": {
+        "type": "object",
+        "required": ["tips", "total"],
+        "properties": {
+          "tips": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Tip" }
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total matching tips before the limit was applied."
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Diagnostic message, e.g. when the database is not configured."
+          }
+        }
+      },
+      "FavouriteList": {
+        "type": "object",
+        "required": ["tip_ids"],
+        "properties": {
+          "tip_ids": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Diagnostic message, e.g. when no user identity was supplied."
+          }
+        }
+      },
+      "Ok": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "note": { "type": "string", "nullable": true }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["detail"],
+        "properties": {
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}

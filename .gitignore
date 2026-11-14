@@ -1,0 +1,29 @@
+# Build artifacts and dependencies — never upload these (source-only, ≤ 16 MB)
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local env & secrets
+.env
+.env.local
+backend/.env
+
+# Substrait project link (per-machine, gitignored by design)
+.substrait/
+
+# Claude Code local session state (scheduled tasks, locks) — per-machine, not project
+# config. Committing it would push one machine's scheduler into everyone's checkout.
+.claude/scheduled_tasks.json
+.claude/scheduled_tasks.lock
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
