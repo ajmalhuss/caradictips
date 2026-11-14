@@ -8,38 +8,56 @@ const CATEGORY_META = {
   warning: {
     label: "Warning signs",
     blurb: "When to get help right away",
+    icon: "⚠️",
     accent: "bg-rose-600",
-    chip: "bg-rose-100 text-rose-900 ring-rose-300",
+    bar: "bg-rose-500",
+    chip: "bg-rose-100 text-rose-900 ring-rose-200",
+    chipActive: "bg-rose-700 text-white ring-rose-700",
   },
   nutrition: {
     label: "Food & drink",
     blurb: "What to eat more of, and less of",
+    icon: "🥗",
     accent: "bg-emerald-600",
-    chip: "bg-emerald-100 text-emerald-900 ring-emerald-300",
+    bar: "bg-emerald-500",
+    chip: "bg-emerald-100 text-emerald-900 ring-emerald-200",
+    chipActive: "bg-emerald-700 text-white ring-emerald-700",
   },
   activity: {
     label: "Activity",
     blurb: "Moving safely, at your own pace",
+    icon: "🚶",
     accent: "bg-sky-600",
-    chip: "bg-sky-100 text-sky-900 ring-sky-300",
+    bar: "bg-sky-500",
+    chip: "bg-sky-100 text-sky-900 ring-sky-200",
+    chipActive: "bg-sky-700 text-white ring-sky-700",
   },
   medication: {
     label: "Medicines",
     blurb: "Taking them safely and on time",
+    icon: "💊",
     accent: "bg-indigo-600",
-    chip: "bg-indigo-100 text-indigo-900 ring-indigo-300",
+    bar: "bg-indigo-500",
+    chip: "bg-indigo-100 text-indigo-900 ring-indigo-200",
+    chipActive: "bg-indigo-700 text-white ring-indigo-700",
   },
   monitoring: {
     label: "Monitoring",
     blurb: "What to track and what changes mean",
+    icon: "🩺",
     accent: "bg-amber-600",
-    chip: "bg-amber-100 text-amber-900 ring-amber-300",
+    bar: "bg-amber-500",
+    chip: "bg-amber-100 text-amber-900 ring-amber-200",
+    chipActive: "bg-amber-700 text-white ring-amber-700",
   },
   lifestyle: {
     label: "Everyday life",
     blurb: "Sleep, stress, smoking, mood",
+    icon: "🌿",
     accent: "bg-teal-600",
-    chip: "bg-teal-100 text-teal-900 ring-teal-300",
+    bar: "bg-teal-500",
+    chip: "bg-teal-100 text-teal-900 ring-teal-200",
+    chipActive: "bg-teal-700 text-white ring-teal-700",
   },
 };
 
@@ -51,8 +69,11 @@ const meta = (c) =>
   CATEGORY_META[c] ?? {
     label: c,
     blurb: "",
+    icon: "",
     accent: "bg-slate-600",
-    chip: "bg-slate-100 text-slate-800 ring-slate-300",
+    bar: "bg-slate-400",
+    chip: "bg-slate-100 text-slate-800 ring-slate-200",
+    chipActive: "bg-slate-800 text-white ring-slate-800",
   };
 
 // A stable per-browser id, used only to key favourites when there is no SSO
@@ -120,58 +141,133 @@ function reviewLabel(tip) {
     : `Clinically reviewed ${date}`;
 }
 
+function HeartMark({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="currentColor"
+    >
+      <path d="M12 21s-7.5-4.8-9.6-9.2C.8 8.4 2.6 4.7 6.1 4.1c2.3-.4 4.4.7 5.9 2.6 1.5-1.9 3.6-3 5.9-2.6 3.5.6 5.3 4.3 3.7 7.7C19.5 16.2 12 21 12 21Z" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
 function EmergencyCard() {
   return (
     <section
       aria-labelledby="emergency-heading"
-      className="rounded-2xl border-2 border-rose-300 bg-rose-50 p-5 sm:p-6"
+      className="overflow-hidden rounded-2xl border-2 border-rose-300 bg-white shadow-card"
     >
-      <h2
-        id="emergency-heading"
-        className="flex items-center gap-2 text-xl font-bold text-rose-900"
-      >
-        <span aria-hidden="true" className="text-2xl">⚠️</span>
-        Call emergency services if you have
-      </h2>
-      <ul className="mt-3 space-y-2 text-rose-950">
-        <li className="flex gap-2">
-          <span aria-hidden="true" className="mt-1 text-rose-600">•</span>
+      <div className="flex items-center gap-3 bg-rose-700 px-5 py-3.5 sm:px-6">
+        <span
+          aria-hidden="true"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-lg"
+        >
+          ⚠️
+        </span>
+        <h2
+          id="emergency-heading"
+          className="text-lg font-bold leading-snug text-white sm:text-xl"
+        >
+          Call emergency services if you have
+        </h2>
+      </div>
+      <ul className="space-y-3 bg-rose-50 px-5 py-5 text-rose-950 sm:px-6">
+        <li className="flex gap-3">
+          <span
+            aria-hidden="true"
+            className="mt-2 h-2 w-2 shrink-0 rounded-full bg-rose-600"
+          />
           <span>
             Chest pain or pressure that does not settle, especially spreading to
             the arm, jaw, neck or back
           </span>
         </li>
-        <li className="flex gap-2">
-          <span aria-hidden="true" className="mt-1 text-rose-600">•</span>
+        <li className="flex gap-3">
+          <span
+            aria-hidden="true"
+            className="mt-2 h-2 w-2 shrink-0 rounded-full bg-rose-600"
+          />
           <span>
             Sudden severe breathlessness, or breathlessness that wakes you gasping
           </span>
         </li>
-        <li className="flex gap-2">
-          <span aria-hidden="true" className="mt-1 text-rose-600">•</span>
+        <li className="flex gap-3">
+          <span
+            aria-hidden="true"
+            className="mt-2 h-2 w-2 shrink-0 rounded-full bg-rose-600"
+          />
           <span>
             A fast or irregular heartbeat with dizziness, chest discomfort or
             near-fainting
           </span>
         </li>
       </ul>
-      <p className="mt-3 text-sm font-medium text-rose-900">
+      <p className="border-t border-rose-200 bg-rose-100 px-5 py-3 text-sm font-semibold text-rose-900 sm:px-6">
         Do not drive yourself. Sit down and call your local emergency number.
       </p>
     </section>
   );
 }
 
+function CategoryChip({ category, className = "" }) {
+  const m = meta(category);
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ring-1 ${m.chip} ${className}`}
+    >
+      {m.icon && <span aria-hidden="true">{m.icon}</span>}
+      {m.label}
+    </span>
+  );
+}
+
+function WhyItHelps({ children }) {
+  return (
+    <p className="mt-3 rounded-r-lg border-l-4 border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+      <span className="font-semibold text-slate-700">Why it helps: </span>
+      {children}
+    </p>
+  );
+}
+
 function TipCard({ tip, isFav, onToggleFav }) {
   const m = meta(tip.category);
+  const isWarning = tip.category === "warning";
   return (
-    <article className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 print-tip">
+    <article
+      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white p-5 pl-6 shadow-card ring-1 ring-slate-200 transition hover:shadow-card-hover print-tip lg:col-span-1 ${
+        isWarning ? "lg:col-span-2" : ""
+      }`}
+    >
+      {/* Category colour as a quiet spine rather than a loud header — it gives the
+          list scannability without competing with the tip text. */}
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1.5 ${m.bar}`}
+      />
+
       <div className="flex items-start justify-between gap-3">
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ring-1 ${m.chip}`}
-        >
-          {m.label}
-        </span>
+        <CategoryChip category={tip.category} />
         <button
           type="button"
           onClick={() => onToggleFav(tip.id)}
@@ -181,10 +277,10 @@ function TipCard({ tip, isFav, onToggleFav }) {
               ? `Remove "${tip.title}" from favourites`
               : `Save "${tip.title}" to favourites`
           }
-          className={`-mr-1 -mt-1 rounded-xl p-2 text-xl leading-none transition ${
+          className={`no-print -mr-2 -mt-2 grid h-11 w-11 place-items-center rounded-xl text-xl leading-none transition ${
             isFav
-              ? "text-amber-500 hover:text-amber-600"
-              : "text-slate-300 hover:text-slate-500"
+              ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600"
+              : "text-slate-300 hover:bg-slate-100 hover:text-slate-500"
           }`}
         >
           <span aria-hidden="true">{isFav ? "★" : "☆"}</span>
@@ -196,16 +292,13 @@ function TipCard({ tip, isFav, onToggleFav }) {
       </h3>
       <p className="mt-2 text-slate-700">{tip.body}</p>
 
-      {tip.why && (
-        <p className="mt-3 border-l-4 border-slate-200 pl-3 text-sm text-slate-600">
-          <span className="font-semibold text-slate-700">Why it helps: </span>
-          {tip.why}
-        </p>
-      )}
+      {tip.why && <WhyItHelps>{tip.why}</WhyItHelps>}
 
-      <p className="mt-3 text-xs text-slate-500">
+      <p className="mt-auto pt-3 text-xs text-slate-500">
         {reviewLabel(tip)}
-        {tip.source && <span className="print-source"> · Source: {tip.source}</span>}
+        {tip.source && (
+          <span className="print-source"> · Source: {tip.source}</span>
+        )}
       </p>
     </article>
   );
@@ -336,11 +429,22 @@ export default function App() {
   }, [visible]);
 
   const chips = [{ key: null, label: "Everything" }].concat(
-    Object.entries(CATEGORY_META).map(([key, m]) => ({ key, label: m.label }))
+    Object.entries(CATEGORY_META).map(([key, m]) => ({
+      key,
+      label: m.label,
+      icon: m.icon,
+      activeClass: m.chipActive,
+    }))
   );
 
+  const clearFilters = () => {
+    setQuery("");
+    setActiveCat(null);
+    setShowFavsOnly(false);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-canvas">
       <a
         href="#tips"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg"
@@ -348,15 +452,30 @@ export default function App() {
         Skip to tips
       </a>
 
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="text-3xl">❤️</span>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              {title}
-            </h1>
+      <header className="relative overflow-hidden border-b border-slate-200 bg-white">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-rose-50 via-white to-white"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-rose-100/50 blur-3xl"
+        />
+        <div className="relative mx-auto max-w-5xl px-4 py-9 sm:px-6 sm:py-11">
+          <div className="flex items-center gap-4">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-rose-700 text-white shadow-lg shadow-rose-700/25">
+              <HeartMark className="h-7 w-7" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-[1.75rem] font-bold tracking-tight text-slate-900 sm:text-4xl">
+                {title}
+              </h1>
+              <p className="mt-1 text-sm font-medium text-rose-800">
+                Food · movement · medicines · warning signs
+              </p>
+            </div>
           </div>
-          <p className="mt-3 max-w-2xl text-slate-600">
+          <p className="mt-4 max-w-2xl text-slate-600">
             Short, practical tips for living well with heart disease — food,
             movement, medicines and the numbers worth watching. General guidance
             only: follow your own care team's plan where it differs.
@@ -364,7 +483,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <InstallBanner />
         <EmergencyCard />
 
@@ -383,35 +502,30 @@ export default function App() {
         {todays && (
           <section
             aria-labelledby="today-heading"
-            className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200"
+            className="overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-slate-200"
           >
-            <div className="border-b border-slate-200 bg-slate-50 px-5 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 sm:px-6">
               <h2
                 id="today-heading"
-                className="text-xs font-bold uppercase tracking-widest text-slate-500"
+                className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500"
               >
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full bg-rose-600"
+                />
                 Today's tip
               </h2>
+              <CategoryChip category={todays.category} />
             </div>
             <div className="p-5 sm:p-6">
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ring-1 ${meta(todays.category).chip}`}
-              >
-                {meta(todays.category).label}
-              </span>
-              <h3 className="mt-3 text-xl font-semibold leading-snug text-slate-900">
+              <h3 className="text-xl font-semibold leading-snug text-slate-900">
                 {todays.title}
               </h3>
               <p className="mt-2 text-slate-700">{todays.body}</p>
-              {todays.why && (
-                <p className="mt-3 border-l-4 border-slate-200 pl-3 text-sm text-slate-600">
-                  <span className="font-semibold text-slate-700">
-                    Why it helps:{" "}
-                  </span>
-                  {todays.why}
-                </p>
-              )}
-              <p className="mt-3 text-xs text-slate-500">{reviewLabel(todays)}</p>
+              {todays.why && <WhyItHelps>{todays.why}</WhyItHelps>}
+              <p className="mt-3 text-xs text-slate-500">
+                {reviewLabel(todays)}
+              </p>
             </div>
           </section>
         )}
@@ -429,7 +543,7 @@ export default function App() {
                 type="button"
                 onClick={() => setShowFavsOnly((v) => !v)}
                 aria-pressed={showFavsOnly}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${
+                className={`rounded-xl px-4 py-2.5 text-sm font-semibold ring-1 transition ${
                   showFavsOnly
                     ? "bg-amber-500 text-white ring-amber-500"
                     : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
@@ -442,7 +556,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="no-print rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
+                className="no-print rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
               >
                 <span aria-hidden="true">🖨</span> Print
               </button>
@@ -457,43 +571,52 @@ export default function App() {
             data, or using a different phone or browser, will not carry them over.
           </p>
 
-          <div>
-            <label htmlFor="search" className="sr-only">
-              Search tips
-            </label>
-            <input
-              id="search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search — e.g. salt, walking, blood pressure"
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
-            />
-          </div>
+          <div className="no-print space-y-3 rounded-2xl bg-white p-4 shadow-card ring-1 ring-slate-200 sm:p-5">
+            <div className="relative">
+              <label htmlFor="search" className="sr-only">
+                Search tips
+              </label>
+              <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                id="search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search — e.g. salt, walking, blood pressure"
+                className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-12 pr-4 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+              />
+            </div>
 
-          <div
-            role="group"
-            aria-label="Filter by category"
-            className="flex flex-wrap gap-2"
-          >
-            {chips.map((c) => {
-              const active = activeCat === c.key;
-              return (
-                <button
-                  key={c.key ?? "all"}
-                  type="button"
-                  onClick={() => setActiveCat(c.key)}
-                  aria-pressed={active}
-                  className={`rounded-full px-4 py-2 text-sm font-medium ring-1 transition ${
-                    active
-                      ? "bg-slate-900 text-white ring-slate-900"
-                      : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-100"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
+            <div
+              role="group"
+              aria-label="Filter by category"
+              className="flex flex-wrap gap-2"
+            >
+              {chips.map((c) => {
+                const active = activeCat === c.key;
+                return (
+                  <button
+                    key={c.key ?? "all"}
+                    type="button"
+                    onClick={() => setActiveCat(c.key)}
+                    aria-pressed={active}
+                    className={`rounded-full px-4 py-2 text-sm font-medium ring-1 transition ${
+                      active
+                        ? c.activeClass ||
+                          "bg-slate-900 text-white ring-slate-900"
+                        : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-100"
+                    }`}
+                  >
+                    {c.icon && (
+                      <span aria-hidden="true" className="mr-1.5">
+                        {c.icon}
+                      </span>
+                    )}
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {error && (
@@ -505,23 +628,47 @@ export default function App() {
             </p>
           )}
 
-          <p className="text-sm text-slate-500" role="status" aria-live="polite">
-            {loading
-              ? "Loading tips…"
-              : `${ordered.length} of ${total} tips${activeCat ? ` in ${meta(activeCat).label}` : ""}${showFavsOnly ? " (saved only)" : ""}`}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+            <p
+              className="text-sm font-medium text-slate-600 tabular-nums"
+              role="status"
+              aria-live="polite"
+            >
+              {loading
+                ? "Loading tips…"
+                : `${ordered.length} of ${total} tips${activeCat ? ` in ${meta(activeCat).label}` : ""}${showFavsOnly ? " (saved only)" : ""}`}
+            </p>
+            {!loading && (query || activeCat || showFavsOnly) && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="no-print rounded-lg px-2 py-1 text-sm font-medium text-rose-700 underline decoration-rose-300 underline-offset-4 hover:bg-rose-50"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
 
           {!loading && ordered.length === 0 && (
-            <div className="rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200">
+            <div className="rounded-2xl bg-white p-8 text-center shadow-card ring-1 ring-slate-200">
               <p className="text-slate-600">
                 {showFavsOnly
                   ? "You have not saved any tips yet. Tap the star on any tip to keep it here."
                   : "No tips match that search — try a simpler word."}
               </p>
+              {!showFavsOnly && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-4 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           )}
 
-          <div className="grid gap-4">
+          <div className="grid gap-4 lg:grid-cols-2 print:grid-cols-1">
             {ordered.map((tip) => (
               <TipCard
                 key={tip.id}
@@ -547,17 +694,19 @@ export default function App() {
         </section>
       </main>
 
-      <footer className="mx-auto max-w-3xl px-4 pb-10 sm:px-6">
-        <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-          This app is general education, not medical advice, and it does not
-          replace your own care plan. If something feels wrong, contact your care
-          team — and in an emergency, call your local emergency number.
-        </p>
-        <p className="mt-3 text-xs text-slate-500">
-          Each tip names the published guidance it is based on. Where a tip shows a
-          review date it has been clinically checked; where no date is shown, it has
-          not yet been reviewed.
-        </p>
+      <footer className="mx-auto max-w-5xl px-4 pb-10 sm:px-6">
+        <div className="rounded-2xl bg-white px-4 py-4 shadow-card ring-1 ring-slate-200">
+          <p className="text-sm text-slate-600">
+            This app is general education, not medical advice, and it does not
+            replace your own care plan. If something feels wrong, contact your care
+            team — and in an emergency, call your local emergency number.
+          </p>
+          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+            Each tip names the published guidance it is based on. Where a tip shows
+            a review date it has been clinically checked; where no date is shown, it
+            has not yet been reviewed.
+          </p>
+        </div>
       </footer>
     </div>
   );
