@@ -43,6 +43,10 @@ const CATEGORY_META = {
   },
 };
 
+// Tips fetched per page. Large enough that the 26-tip library is one request,
+// small enough that growth does not mean one enormous response.
+const PAGE_SIZE = 50;
+
 const meta = (c) =>
   CATEGORY_META[c] ?? {
     label: c,
@@ -76,7 +80,44 @@ async function api(path, opts = {}) {
     const detail = await res.json().catch(() => ({}));
     throw new Error(detail.detail || `Request failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  // The service worker marks responses it answered from its cache. Carry that
+  // through as plain data so the UI can show how old what it is reading is.
+  if (res.headers.get("X-From-Cache")) {
+    const age = Number(res.headers.get("X-Cached-Age"));
+    Object.defineProperty(data, "__cache", {
+      value: { ageSeconds: Number.isFinite(age) ? age : null },
+      enumerable: false,
+    });
+  }
+  return data;
+}
+
+// "3 days ago" / "just now" — coarse on purpose; a patient does not need seconds.
+function describeAge(seconds) {
+  if (seconds === null || !Number.isFinite(seconds)) return "an earlier visit";
+  if (seconds < 90) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 36) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+// "Reviewed 12 March 2026". Never invents a date: an unreviewed tip says so.
+function reviewLabel(tip) {
+  if (!tip?.reviewed_on) return "Not yet clinically reviewed";
+  const d = new Date(`${tip.reviewed_on}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "Review date unavailable";
+  const date = d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  return tip.reviewed_by
+    ? `Clinically reviewed ${date} by ${tip.reviewed_by}`
+    : `Clinically reviewed ${date}`;
 }
 
 function EmergencyCard() {
@@ -124,7 +165,7 @@ function EmergencyCard() {
 function TipCard({ tip, isFav, onToggleFav }) {
   const m = meta(tip.category);
   return (
-    <article className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <article className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 print-tip">
       <div className="flex items-start justify-between gap-3">
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ring-1 ${m.chip}`}
@@ -161,6 +202,11 @@ function TipCard({ tip, isFav, onToggleFav }) {
           {tip.why}
         </p>
       )}
+
+      <p className="mt-3 text-xs text-slate-500">
+        {reviewLabel(tip)}
+        {tip.source && <span className="print-source"> · Source: {tip.source}</span>}
+      </p>
     </article>
   );
 }
@@ -185,6 +231,9 @@ export default function App() {
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cachedAge, setCachedAge] = useState(null);
 
   // Debounce the search box so typing doesn't fire a request per keystroke.
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -206,25 +255,57 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  const queryString = useCallback(
+    (offset) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (offset) params.set("offset", String(offset));
+      if (activeCat) params.set("category", activeCat);
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      return params.toString();
+    },
+    [activeCat, debouncedQuery]
+  );
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams();
-    if (activeCat) params.set("category", activeCat);
-    if (debouncedQuery) params.set("q", debouncedQuery);
-    api(`/tips?${params.toString()}`)
+    setCachedAge(null);
+    api(`/tips?${queryString(0)}`)
       .then((d) => {
         if (cancelled) return;
         setTips(d.tips || []);
         setTotal(d.total ?? (d.tips || []).length);
+        setHasMore(Boolean(d.has_more));
         setError(d.note || null);
+        setCachedAge(d.__cache ? d.__cache.ageSeconds : null);
       })
       .catch((e) => !cancelled && setError(e.message))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [activeCat, debouncedQuery]);
+  }, [queryString]);
+
+  // Fetch the next page and append. Warning tips are added in their own order and
+  // re-sorted by `ordered` below, so appending cannot bury one.
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const d = await api(`/tips?${queryString(tips.length)}`);
+      setTips((prev) => {
+        const seen = new Set(prev.map((t) => t.id));
+        return prev.concat((d.tips || []).filter((t) => !seen.has(t.id)));
+      });
+      setTotal(d.total ?? total);
+      setHasMore(Boolean(d.has_more));
+      if (d.__cache) setCachedAge(d.__cache.ageSeconds);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const favSet = useMemo(() => new Set(favIds), [favIds]);
 
@@ -287,6 +368,18 @@ export default function App() {
         <InstallBanner />
         <EmergencyCard />
 
+        {/* F5.8: if what is on screen came from the offline cache, say so and say
+            how old it is. A tip read weeks ago must not look like today's. */}
+        {cachedAge !== null && (
+          <p
+            role="status"
+            className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700 ring-1 ring-slate-200"
+          >
+            You are viewing a saved copy from {describeAge(cachedAge)}. It may not
+            include the newest tips — connect to the internet to refresh.
+          </p>
+        )}
+
         {todays && (
           <section
             aria-labelledby="today-heading"
@@ -318,6 +411,7 @@ export default function App() {
                   {todays.why}
                 </p>
               )}
+              <p className="mt-3 text-xs text-slate-500">{reviewLabel(todays)}</p>
             </div>
           </section>
         )}
@@ -330,19 +424,38 @@ export default function App() {
             >
               Browse all tips
             </h2>
-            <button
-              type="button"
-              onClick={() => setShowFavsOnly((v) => !v)}
-              aria-pressed={showFavsOnly}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${
-                showFavsOnly
-                  ? "bg-amber-500 text-white ring-amber-500"
-                  : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              <span aria-hidden="true">★</span> Saved ({favIds.length})
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFavsOnly((v) => !v)}
+                aria-pressed={showFavsOnly}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${
+                  showFavsOnly
+                    ? "bg-amber-500 text-white ring-amber-500"
+                    : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <span aria-hidden="true">★</span> Saved ({favIds.length})
+              </button>
+              {/* F6.9: paper is still the medium many of these users trust. The
+                  button prints the warning card plus whatever is on screen. */}
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="no-print rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
+              >
+                <span aria-hidden="true">🖨</span> Print
+              </button>
+            </div>
           </div>
+
+          {/* P5/F4.8: favourites live in this browser only. Say it here, where the
+              user is looking at the Saved button, not only in the docs. */}
+          <p className="text-sm text-slate-600">
+            <span aria-hidden="true">★</span> Saved tips are kept on this device
+            and this browser only. They are not an account: clearing your browsing
+            data, or using a different phone or browser, will not carry them over.
+          </p>
 
           <div>
             <label htmlFor="search" className="sr-only">
@@ -418,6 +531,19 @@ export default function App() {
               />
             ))}
           </div>
+
+          {hasMore && (
+            <div className="no-print flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {loadingMore ? "Loading…" : "Show more tips"}
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
@@ -426,6 +552,11 @@ export default function App() {
           This app is general education, not medical advice, and it does not
           replace your own care plan. If something feels wrong, contact your care
           team — and in an emergency, call your local emergency number.
+        </p>
+        <p className="mt-3 text-xs text-slate-500">
+          Each tip names the published guidance it is based on. Where a tip shows a
+          review date it has been clinically checked; where no date is shown, it has
+          not yet been reviewed.
         </p>
       </footer>
     </div>

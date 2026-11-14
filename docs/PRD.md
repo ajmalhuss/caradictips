@@ -2,7 +2,7 @@
 
 **Status:** v1 · living document
 **Owner:** TBD (see §11 Open questions)
-**Last updated:** 2026-11-14
+**Last updated:** 2026-11-14 (implementation round — see §12 note)
 **Shipped surface documented against:** `backend/main.py`, `frontend/src/App.jsx`, `V1__init.sql`, commit `3403506`
 
 > **How to read this.** This app already exists and is deployed. So the PRD does two jobs:
@@ -128,7 +128,7 @@ v1, not built · `PROPOSED` = considered, not committed.
 | F2.8 | An unknown category still renders (grey chip) rather than breaking | SHIPPED — `meta()` fallback, `App.jsx:46-52`; backend appends unknown categories |
 | F2.9 | Tip count is announced to assistive tech as it changes | SHIPPED — `role="status" aria-live="polite"`, `App.jsx:395` |
 | F2.10 | Empty search results show a recovery hint ("try a simpler word") | SHIPPED — `App.jsx:401-409` |
-| F2.11 | Library can be paged rather than truncated | GAP — `/api/tips` has `limit` (max 200) but **no `offset`** (`main.py:184`). At 26 rows irrelevant; blocks growth past ~200 |
+| F2.11 | Library can be paged rather than truncated | SHIPPED — `/api/tips` takes `offset`, returns `has_more`, and the UI appends with a "Show more tips" button. Verified against the SQLite mirror with no duplicate or missing ids across pages |
 
 ### 6.3 Search
 
@@ -138,7 +138,7 @@ v1, not built · `PROPOSED` = considered, not committed.
 | F3.2 | Case-insensitive matching | SHIPPED — `utf8mb4_unicode_ci` collation |
 | F3.3 | Input debounced so typing doesn't issue a request per keystroke | SHIPPED — 250 ms, `App.jsx:191-194` |
 | F3.4 | Stale responses cannot overwrite fresher ones | SHIPPED — `cancelled` flag, `App.jsx:209-227` |
-| F3.5 | Search tolerates the audience's likely spellings of health terms | GAP — substring match only: no stemming, fuzziness or synonym mapping. "fiber" misses "fibre"; "BP" misses "blood pressure"; a typo returns nothing. This is a real usability failure for §5.1 |
+| F3.5 | Search tolerates the audience's likely spellings of health terms | SHIPPED — synonym groups (BP = blood pressure, fibre = fiber, salt = sodium, …), known misspellings, and a one-shot fuzzy retry when nothing matches. Terms under 4 characters are never expanded, because `LIKE '%…%'` makes short aliases match unrelated words |
 | F3.6 | Search works offline against cached content | PARTIAL — the SW only caches exact request URLs already visited; an offline search for a new term hits the network and returns the offline stub. Documented honestly in `sw.js` |
 
 ### 6.4 Favourites
@@ -154,7 +154,7 @@ v1, not built · `PROPOSED` = considered, not committed.
 | F4.7 | Favourites require no account | SHIPPED — per-browser UUID (`localStorage`), `App.jsx:56-68` |
 | F4.8 | Favourites survive browser storage being cleared or the user switching device | **GAP — accepted limitation, see §8.1.** Clearing site data loses every favourite; a new phone starts empty. Must be disclosed in-product before this is considered done |
 | F4.9 | Writes are not attempted offline (no silent queue) | SHIPPED — SW never intercepts non-GET; UI rolls back |
-| F4.10 | Favourites writes are rate-limited | GAP — unauthenticated, unbounded. Any script can insert unlimited rows with arbitrary `X-Client-Id` values. Low impact (small rows, no PII) but an unbounded-growth hole |
+| F4.10 | Favourites writes are rate-limited | SHIPPED — per-user fixed-window limit (`WRITE_LIMIT_PER_MINUTE`, default 30/min → 429) plus a per-user row ceiling (`MAX_FAVOURITES_PER_USER`, default 500 → 409). Per-process, so N pods give N× the budget: an abuse cap, not access control |
 
 ### 6.5 Installation & offline
 
@@ -167,7 +167,7 @@ v1, not built · `PROPOSED` = considered, not committed.
 | F5.5 | Service worker never caches `/health` or any write | SHIPPED — explicit guards, `sw.js` |
 | F5.6 | A deploy invalidates old caches | SHIPPED — versioned cache names, `activate` prune |
 | F5.7 | Service worker is not registered in dev builds | SHIPPED — `import.meta.env.PROD` guard |
-| F5.8 | Offline shows cached content, clearly labelled as possibly stale | PARTIAL — offline stub says "You're offline — showing saved content only." but there is no *staleness timestamp*; a tip cached weeks ago is indistinguishable from today's |
+| F5.8 | Offline shows cached content, clearly labelled as possibly stale | SHIPPED — the service worker tags cache-served responses with `X-From-Cache` / `X-Cached-Age`; the UI shows "You are viewing a saved copy from 3 days ago" |
 
 ### 6.6 Presentation & accessibility
 
@@ -180,8 +180,8 @@ v1, not built · `PROPOSED` = considered, not committed.
 | F6.5 | Star button has an `aria-pressed` state and a descriptive label naming the tip | SHIPPED — `App.jsx:134-150` |
 | F6.6 | Category filters form a labelled group with pressed state | SHIPPED — `role="group"` + `aria-pressed` |
 | F6.7 | Layout is single-column and readable at 320px and at 200% zoom | SHIPPED (verify per release — no automated check) |
-| F6.8 | Meets WCAG 2.2 AA, verified by audit, not by inspection | GAP — the practices are good but nothing is measured. No contrast audit, no screen-reader pass, no automated a11y check in the build |
-| F6.9 | A printable one-page version of the emergency card / saved tips | PROPOSED — §5.1 users frequently want paper; high value, low cost |
+| F6.8 | Meets WCAG 2.2 AA, verified by audit, not by inspection | GAP — the practices are good but nothing is measured. No contrast audit, no screen-reader pass, no automated a11y check in the build. The new UI (staleness banner, per-device note, review line) uses the same slate/rose tokens and 4.5:1-or-better combinations, but that is still inspection, not an audit |
+| F6.9 | A printable one-page version of the emergency card / saved tips | SHIPPED — a Print button prints the emergency card and the tips currently on screen; `@media print` drops chrome, keeps sources and avoids breaking cards across pages |
 
 ### 6.7 Configuration
 
@@ -200,13 +200,13 @@ product's only real risk. These requirements constrain what may be written.
 | ID | Requirement | Status |
 |---|---|---|
 | C1 | **Clinical sign-off.** Every tip and the emergency card are reviewed and approved by a named, qualified clinician before publishing | GAP |
-| C2 | **Review date in-product.** Each tip shows when it was last clinically reviewed, and the app surfaces content older than its review interval | GAP |
+| C2 | **Review date in-product.** Each tip shows when it was last clinically reviewed, and the app surfaces content older than its review interval | SHIPPED — `reviewed_on` / `reviewed_by` columns (`V2`), shown per tip, with `/api/reviews` counting what is due. Every seeded tip still reads "Not yet clinically reviewed" because C1 is unbuilt |
 | C3 | **No dosing advice.** No dose, titration, or "take X mg" language anywhere | SHIPPED — zero dosing language in all 26 tips |
 | C4 | **No number that could override a care plan.** Thresholds are framed as "ask your care team", not as rules | SHIPPED — e.g. "aim for under about a teaspoon of salt", "seven to nine hours", both with explicit deferral |
 | C5 | **Always defer.** A tip stating the app is education and not a care plan is seeded and pinned in the warning category | SHIPPED — tip id 26, `sort_order` 540 |
 | C6 | **`why` is mandatory.** No tip ships without a rationale | SHIPPED in data (26/26); **not enforced** in schema or CI |
 | C7 | **Warning content is never diluted.** Emergency-sign copy is not softened, merged into a general tip, or moved into the rotation | SHIPPED — enforced by `CATEGORY_ORDER` and the exclusion in `/api/today` |
-| C8 | **Cited sources.** Tips trace to a guideline or source (e.g. a national cardiac society) recorded alongside the content | GAP — no source field, no provenance |
+| C8 | **Cited sources.** Tips trace to a guideline or source (e.g. a national cardiac society) recorded alongside the content | PARTIAL — `source` column and UI attribution shipped; all 26 tips seeded (`V3`) with the guideline they follow. Sources record consistency, *not* sign-off — C1 still governs |
 | C9 | **Change control.** Content changes are reviewed, and the diff is attributable to a reviewer | GAP in process terms — changes are migrations in git (good audit trail) but nothing requires sign-off |
 
 ### 7.2 Why C1/C2/C8 are P0, not polish
@@ -248,8 +248,8 @@ consequences are accepted and must be disclosed, not designed around:
 | P2 | No analytics, trackers, third-party scripts, or cookies | SHIPPED — no third-party script tags; the only client storage is the ID and a dismissal flag |
 | P3 | No account creation, no email capture, no profiling | SHIPPED |
 | P4 | Favourites are opaque to the operator: `user_key` is a random identifier, not an email (with SSO off) | SHIPPED |
-| P5 | The per-browser limitation is explained in the UI, not just in docs | GAP — a user who loses favourites today gets no explanation and no warning |
-| P6 | Rate limiting on write endpoints | GAP — see F4.10 |
+| P5 | The per-browser limitation is explained in the UI, not just in docs | SHIPPED — a standing note beside the Saved button says saved tips live in this browser only and that clearing browsing data or switching device will not carry them over |
+| P6 | Rate limiting on write endpoints | SHIPPED — see F4.10 |
 
 ### 8.2 Clinical safety guardrails in the UI
 
@@ -301,19 +301,29 @@ consequences are accepted and must be disclosed, not designed around:
 
 ## 12. Roadmap
 
+> **Implementation note (2026-11-14).** The code-side items below were closed in this
+> round: F2.11, F3.5, F4.10/P6, F5.8, F6.9, P5, and the *mechanism* for C2 and C8
+> (`V2` adds `reviewed_on`/`reviewed_by`/`source`; `V3` attributes every tip to a
+> guideline; `/api/reviews` reports coverage). What remains is the work no amount of
+> code can do: a named clinician must sign off (C1). Every seeded tip currently has
+> `reviewed_on = NULL` and the app says so in plain words — that is the honest state,
+> not an omission to paper over with a plausible-looking date.
+
 **Now / must close before wider distribution (P0)**
-- C1, C2, C8 — clinical sign-off, review dates, sources. *Content requirements, not code.*
-- P5 — disclose the per-browser favourites limitation in the UI.
+- C1 — named clinical sign-off for every tip and the emergency card. *Content work.*
+  The mechanism is ready; only the reviewer is missing.
+- C2 (completion) — set real `reviewed_on` dates when C1 happens; `/api/reviews`
+  will then report coverage instead of 0/26.
 
 **Next (P1)**
-- F3.5 — search robustness (synonyms at minimum: BP/blood pressure, fibre/fiber; stemming).
-- F6.8 — a real WCAG 2.2 AA audit, with fixes.
-- F4.10 — rate-limit favourite writes.
-- F2.11 — `offset` on `/api/tips`.
-- F5.8 — offline staleness indicator.
+- F6.8 — a real WCAG 2.2 AA audit, with fixes. (Still the largest untested claim.)
+
+**Done this round (P1/P2, for the record)**
+- F3.5 synonym + typo search · F4.10/P6 write limits · F2.11 pagination ·
+  F5.8 offline staleness · F6.9 printing · P5 favourites disclosure ·
+  C2/C8 mechanisms and data.
 
 **Later (P2)**
-- F6.9 — printable emergency card / printable saved tips.
 - R5 — localisation, if the audience needs it.
 - Favourites export (text or print) as the mitigation for F4.8, instead of accounts.
 
@@ -339,12 +349,15 @@ of a patient-health product and is worth more than the funnel data.
 The app is shippable as reviewed patient education when **all** of these hold:
 
 - [ ] C1 — every tip and the emergency card carry a named clinical approval.
-- [ ] C2 — a review date is stored per item and shown in the UI.
-- [ ] C8 — sources recorded for at least the warning card and every tip making a numeric claim.
-- [ ] P5 — the favourites limitation is stated in the product.
+- [x] C2 — a review date is stored per item and shown in the UI (mechanism shipped;
+      no date is set yet because C1 has not happened).
+- [x] C8 — sources recorded for every tip (`V3`). They record consistency with a
+      guideline, not approval.
+- [x] P5 — the favourites limitation is stated in the product.
 - [ ] F6.8 — a WCAG 2.2 AA audit has been run and its findings closed or triaged.
 - [ ] R1–R3 reviewed by the clinical owner and the risks accepted in writing.
 - [ ] A named owner for the content review cadence exists.
 
-Currently **1 of 7** is met (the app's structure and copy support all of them; none of the
+Currently **4 of 7** are met, three of them in this round; the remaining three are all
+governance rather than code, and the app's structure and copy support all of them. None of the
 content-governance ones are implemented).

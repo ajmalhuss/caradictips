@@ -16,7 +16,7 @@
  *   - /health                           -> untouched (must always hit the network).
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `cct-shell-${VERSION}`;
 const ASSET_CACHE = `cct-assets-${VERSION}`;
 const API_CACHE = `cct-api-${VERSION}`;
@@ -88,6 +88,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Read-only API: stale-while-revalidate.
+  //
+  // A cached answer carries `X-From-Cache` and the age of the cached copy in
+  // `X-Cached-Age` seconds, so the UI can say "saved copy from 3 days ago" instead
+  // of silently presenting an old tip as today's (PRD F5.8). The headers are
+  // stripped from the network response so only genuinely stale answers carry them.
   if (CACHEABLE_API.test(url.pathname)) {
     event.respondWith(
       (async () => {
@@ -100,7 +105,8 @@ self.addEventListener("fetch", (event) => {
           })
           .catch(() => null);
         // Cache first for an instant answer, network result for the next load.
-        return cached || (await network) || offlineJson();
+        if (cached) return withAge(cached);
+        return (await network) || offlineJson();
       })()
     );
     return;
@@ -119,7 +125,8 @@ self.addEventListener("fetch", (event) => {
           return fresh;
         } catch {
           const cache = await caches.open(API_CACHE);
-          return (await cache.match(req)) || offlineJson();
+          const hit = await cache.match(req);
+          return hit ? await withAge(hit) : offlineJson();
         }
       })()
     );
@@ -148,8 +155,28 @@ self.addEventListener("fetch", (event) => {
 function offlineJson() {
   return new Response(
     JSON.stringify({ tips: [], total: 0, note: "You're offline — showing saved content only." }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json", "X-From-Cache": "1" },
+    }
   );
+}
+
+// Mark a cached response as such, and state how old it is. `Response` headers are
+// immutable, so build a new one; the body is small JSON.
+async function withAge(cached) {
+  let seconds = null;
+  try {
+    const when = cached.headers.get("date");
+    if (when) seconds = Math.max(0, Math.round((Date.now() - Date.parse(when)) / 1000));
+  } catch {
+    /* a cached response without a Date header still counts as cached */
+  }
+  const headers = new Headers(cached.headers);
+  headers.set("X-From-Cache", "1");
+  if (seconds !== null) headers.set("X-Cached-Age", String(seconds));
+  const body = await cached.clone().text();
+  return new Response(body, { status: cached.status, headers });
 }
 
 // Let the page ask the worker to drop its API cache (used by the Update flow).

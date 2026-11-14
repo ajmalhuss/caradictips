@@ -88,7 +88,7 @@
             "name": "q",
             "in": "query",
             "required": false,
-            "description": "Case-insensitive substring match across the tip's title, body and rationale.",
+            "description": "Case-insensitive search across title, body, rationale and source. Health synonyms are expanded (BP = blood pressure, fibre = fiber, salt = sodium) and a query that finds nothing is retried once against close spellings, so a simple typo still finds the tip.",
             "schema": { "type": "string" }
           },
           {
@@ -97,6 +97,13 @@
             "required": false,
             "description": "Maximum tips to return, clamped to the range 1-200.",
             "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 200 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Number of matching tips to skip, for paging. Pair with has_more in the response.",
+            "schema": { "type": "integer", "default": 0, "minimum": 0 }
           }
         ],
         "responses": {
@@ -115,10 +122,10 @@
       "get": {
         "summary": "Return one tip for today, rotating daily and excluding warning signs.",
         "operationId": "getToday",
-        "description": "Stable for the whole day and identical for every user. Warning-sign tips are deliberately excluded: they belong in the always-visible emergency card rather than a once-a-day slot.",
+        "description": "Stable for the whole day and identical for every user. Warning-sign tips are deliberately excluded: they belong in the always-visible emergency card rather than a once-a-day slot. Returns null (not an error) when the database is not configured, so a databaseless boot still renders the app.",
         "responses": {
           "200": {
-            "description": "Today's tip.",
+            "description": "Today's tip, or null when no database is configured.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Tip" }
@@ -132,12 +139,21 @@
                 "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
-          },
-          "503": {
-            "description": "The database is not configured (DATABASE_URL unset).",
+          }
+        }
+      }
+    },
+    "/api/reviews": {
+      "get": {
+        "summary": "Summarise clinical-review coverage of the tip library.",
+        "operationId": "getReviewSummary",
+        "description": "Counts how many tips carry a review date, and how many are past their review interval (REVIEW_INTERVAL_MONTHS, default 12). Reviewer identities are not published here. A tip with no review date counts as due: not-reviewed must never read as approved.",
+        "responses": {
+          "200": {
+            "description": "Review coverage counts.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": { "$ref": "#/components/schemas/ReviewSummary" }
               }
             }
           }
@@ -203,6 +219,22 @@
           },
           "404": {
             "description": "No tip exists with that id.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "This user already has the maximum number of saved tips (MAX_FAVOURITES_PER_USER, default 500).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many favourite changes in the last minute (WRITE_LIMIT_PER_MINUTE, default 30).",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
@@ -300,7 +332,23 @@
             "nullable": true,
             "description": "Short rationale for why the tip helps."
           },
-          "sort_order": { "type": "integer", "description": "Display ordering key; lower sorts first." }
+          "sort_order": { "type": "integer", "description": "Display ordering key; lower sorts first." },
+          "reviewed_on": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Date of the last clinical review, or null when the tip has never been clinically reviewed. Null is the honest state and must not be presented as approval."
+          },
+          "reviewed_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the clinician who signed the tip off, or null."
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "description": "Guideline or source the tip is based on, or null when not yet recorded."
+          }
         }
       },
       "TipList": {
@@ -319,7 +367,32 @@
             "type": "string",
             "nullable": true,
             "description": "Diagnostic message, e.g. when the database is not configured."
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "True when offset + returned tips is less than total, i.e. another page exists."
           }
+        }
+      },
+      "ReviewSummary": {
+        "type": "object",
+        "required": ["total", "reviewed", "due_for_review", "all_current", "interval_months"],
+        "properties": {
+          "total": { "type": "integer", "description": "Tips in the library." },
+          "reviewed": { "type": "integer", "description": "Tips with a review date recorded." },
+          "due_for_review": {
+            "type": "integer",
+            "description": "Tips never reviewed or last reviewed longer than interval_months ago."
+          },
+          "all_current": {
+            "type": "boolean",
+            "description": "True only when every tip has a review inside the interval."
+          },
+          "interval_months": {
+            "type": "integer",
+            "description": "Review validity window in months (REVIEW_INTERVAL_MONTHS)."
+          },
+          "note": { "type": "string", "nullable": true }
         }
       },
       "FavouriteList": {

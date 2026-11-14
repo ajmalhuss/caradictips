@@ -91,8 +91,31 @@ Every route declares a `response_model`. That is what puts real field names and 
 pattern.
 
 Routes: `/health`, and under `/api`: `config`, `me`, `categories`, `tips`
-(`?category=`, `?q=`, `?limit=`), `today`, `favourites`, `favourites/{tip_id}` (POST,
-DELETE — idempotent, 404 if the tip doesn't exist).
+(`?category=`, `?q=`, `?limit=`, `?offset=`; returns `has_more`), `today`, `reviews`,
+`favourites`, `favourites/{tip_id}` (POST — 404 unknown tip, 409 at the per-user cap,
+429 when write-limited; DELETE — idempotent).
+
+`/api/today` returns `null` (not 503) when `DATABASE_URL` is unset — the daily tip is
+decoration and must not make a databaseless boot look broken.
+
+### Search
+
+`?q=` is not plain `LIKE`. `_expand_term` maps a word through `_SYNONYM_GROUPS` and
+`_SPELLING`, and `_term_groups` extracts multi-word phrases first so "blood pressure"
+is one term rather than `blood AND pressure`. Expansions shorter than 4 characters are
+dropped because `LIKE '%x%'` makes short aliases match unrelated words ("flu" hits
+"fluid"). If the widened query finds nothing, `_fuzzy_terms` retries once against
+`_SEARCH_VOCAB`. Extend the groups/vocab when adding content vocabulary; keep the
+30-second mental test: does "fiber" find "fibre", and does a typo still find the tip?
+
+### Clinical review metadata
+
+`tips.reviewed_on` / `reviewed_by` / `source` (`V2`, `V3`). **All reviews are `NULL` on
+purpose** — no clinician has signed off. The UI renders "Not yet clinically reviewed";
+`/api/reviews` counts coverage and reports anything past `REVIEW_INTERVAL_MONTHS`
+(default 12) as due, and a NULL date always counts as due. When a real review happens,
+set the columns in a new migration — never backfill a guessed date or an invented
+reviewer name to make the number look better.
 
 ### Frontend
 
@@ -105,11 +128,20 @@ Sizing is deliberately generous (base font 1.0625rem, big tap targets, visible
 `:focus-visible` ring, skip link) because the audience skews older. Don't trim those for
 visual density.
 
+Offline staleness: `sw.js` marks cache-served responses with `X-From-Cache` and
+`X-Cached-Age`; `api()` lifts those onto the parsed object as a non-enumerable
+`__cache`, and the UI shows a "saved copy from 3 days ago" banner. Don't strip that —
+a cached tip presented as current is the failure mode it exists to prevent.
+
+Printing (F6.9): a Print button calls `window.print()`; `@media print` hides `.no-print`
+chrome and keeps `.print-source`. Paper is a real delivery channel for this audience.
+
 ## Constraints worth knowing before editing
 
 - **Never edit `V1__init.sql` once it has deployed anywhere.** Flyway records a checksum;
   editing it breaks the next deploy of that environment with `Migration checksum
-  mismatch`. Schema or seed changes go in a new `V2__*.sql`.
+  mismatch`. Schema or seed changes go in a new `V2__*.sql`. (`V2` adds review
+  metadata, `V3` sets tip sources — both applied, neither revisable.)
 - On OceanBase, never add a column and a foreign key in one `ALTER TABLE`, and never use a
   self-referencing `ON DELETE CASCADE`. A failed migration wedges every later deploy until
   the portal's **Repair migration history** is run.

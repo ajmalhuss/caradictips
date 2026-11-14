@@ -2,12 +2,14 @@
 # fails validation.
 
 description: >
-  Cardiac Care Tips gives people living with heart disease a short, practical,
-  evidence-based library of tips on nutrition, activity, medication adherence,
-  blood-pressure and weight monitoring, sleep, stress and warning signs —
-  searchable by category, with a daily rotating tip and favourites saved per
-  user. It is general patient education, not a substitute for anyone's own
-  care plan.
+  Cardiac Care Tips gives people living with heart disease a short, practical
+  library of tips on nutrition, activity, medication adherence, blood-pressure and
+  weight monitoring, sleep, stress and emergency warning signs — searchable by
+  category with synonym- and typo-tolerant search, a daily rotating tip,
+  per-device favourites, an always-visible warning-signs card, offline reading and
+  printing. Each tip names the published guidance it follows and shows its
+  clinical-review date; the API reports review coverage. General patient
+  education, not a substitute for anyone's own care plan.
 
 # Explicit database declaration — the platform provisions it and injects
 # DATABASE_URL only because this key is present. oceanbase = shared HA cluster,

@@ -24,3 +24,34 @@
     }
   }
 }
+
+/* Print: the emergency card and the tips currently on screen are what belongs on
+   paper. Chrome/buttons/navigation are noise on a printed sheet. */
+@media print {
+  .no-print,
+  header nav,
+  form,
+  [role="group"] {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  article,
+  .print-tip {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1;
+  }
+
+  /* Sources matter on paper, where there is no "why" link to follow. */
+  .print-source {
+    font-weight: 500;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}
